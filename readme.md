@@ -121,5 +121,98 @@ If we go ``docker container run -it alpine bash`` it says "docker: Error respons
 => Alpine is so small it doesn't have bash, but it does have sh. so you can run ``docker container run -it alpine sh`` and if you search alpine on the internet, its package manager is apk and we could use this to install bash if we needed it. 
 
 **Docker Networks: Concepts**
-- ``docker container run -p``
+- ``docker container run -p`` => exposes the port on your machine. defaults normally "just work"
 - quick port check with ``docker container port <container>``
+
+
+docker network defaults: 
+- When you start a container, in the background you're really connecting to the docker network (usually the docker bridge network)
+- Each virtual network routes through NAT firewall on host IP
+- All containers on a virtual network can talk to each other without -p
+- Docker saying "batteries included, but removable" means that defaults normally work, but you can tweak them.
+- You can make new virtual networks 
+- You can attach containers to more than one virtual network (or none)
+- Skip virtual networks and use host IP (--net=host)
+
+---
+
+Command line stuff:
+- ``docker container run -p 80:80 --name webhost -d nginx`` => 80:80 is always host:container format. I.e. 80 is the default and represents "https://localhost". If you use 8080:80, your container will be on https://localhost:8080
+- ``docker container port webhost`` shows us which ports are forwarding traffic from the host to that container itself
+- ``docker container inspect --format '{{.NetworkSettings.IPAddress}} webhost' `` => --format, a common option for formatting the output of commands using "Go templates", you can see the address of the container is not on the same IP network as the host computer 
+
+---
+
+Docker Networks: CLI Management 
+
+nginx:alpine
+
+- Show networks ``docker network ls``
+  - "bridge" is the default docker virtual network, that bridges through the NAT firewall, to the physical network that your host is connected to
+- Inspect a network ``docker network inspect <name of network>``
+- Create a network ``docker network create --driver``
+  - If you don't put --driver in there, it will default to bridge
+- Attach a network to container ``docker network connect``
+- Detach a network from container ``docker network disconnect``
+- To attach a network to a container, can attach it i.e. when you create a network: ``docker container run -d --name new_ngnix --network my_app_net nginx``
+Another way to connect to a network: 
+``docker network --help``
+``docker network connect <put the network id here> <put the app network here>``
+If you connect a container to another host, it will now be on two networks!
+You can check it has connected to the new network with: ``docker container inspect <container id>``
+- to disconnect a container from a network: 
+``docker disconnect <network id> <container id>``
+
+If you're running containers on a single server, you can protect them by giving them their own network. 
+Create your apps so frontend/backend sit on the same Docker network.
+Their inter-communication never leaves host
+All externally ports closed by default, you must manually expose via -p 
+This gets even better later with Swarm and Overlay networks 
+
+===
+
+Docker Networks: DNS
+
+- Understand how DNS is the key to easy inter-container comms
+  - Forget IP's , static IP's and using IP's for talking to containers is best avoided
+  - A network which does not have the default 'bridge' gets a special new feature: automatic DNS resolution
+  - If you create another container on that network, it will be able to connect to all existing containers on that network, 
+  ``docker container exec -it <first container> ping <second container>`` should connect.
+  - Note: the default bridge network does not have the DNS server built into it by default. You can use ``--link`` to create manual links between containers, but it much easier to create a new network for your apps. 
+- See how it works by default with custom networks
+- Learn how to use --link to enable DNS on default bridge network
+
+Key take aways: 
+Containers shouldn't rely in IP's for inter-communication, DNS for friendly names is built-in if you use custom networks. 
+
+===
+
+ASSIGNMENT: Using Containers for CLI testing
+``docker container run -it centos:7 bash``
+``docker container run -it ubuntu:14.04 bash``
+``docker container rm 789 987`` => cleanup!
+
+
+if you use:
+``docker container run --rm -it ubuntu:14.04 bash`` the --rm basically removes the container once you edit out of the terminal
+
+===
+
+Assignment: DNS Round robin test 
+you can have two different hosts, with DNS aliases, that respond to the same DNS name.
+i.e. google.com has more than 1 server
+
+Since docker engine 1.11, we can have multiple containers on a created network respond to the same DNS address
+Step 1: 
+Create network
+``docker network create dude``
+Step 2: 
+Create two containers
+``docker container run -d --net dude --net-alias search elasticsearch:2``
+Step 3:
+Run test to make sure you can get to both with same DNS name
+``docker container run --rm --net dude alpine:3.10 nslookup search``
+it should return 2 values
+Step 4: 
+Run test with centos 
+``docker container run --rm --net dude centos curl -s search:9200``
