@@ -216,3 +216,155 @@ it should return 2 values
 Step 4: 
 Run test with centos 
 ``docker container run --rm --net dude centos curl -s search:9200``
+
+====
+
+## Docker Images
+- the building blocks of containers
+- Whats in an image (and what isnt)
+- Using docker hub registry
+- Managing our local image cache
+- Building our own images
+
+***Whats in an image (and what isnt)***
+- App binaries and dependencies
+- Metadata about the image data and how to run the image
+- Official definition: "An image is an ordered collection of filesystem changes and the corresponding execution parameters for use within a container runtime"
+- Not a complete OS (no kernel or kernel modules. just the binaries the container needs, as the host provides the kernel)
+=> More like starting an application than booting up a whole operating system (which is what virtual machine would do)
+
+---
+
+***Using dockerhub registery images***
+- basics of docker hub (hub.docker.com)
+- find offocial and other good public images
+  - good vs bad images
+- download images and basics of image tags
+
+When on the website, an official image will have no "/" in it! When a normal person makes an image, it will have our account name infront of it like: "march4/myimage"
+
+Official images:
+- docker has a team of people who take care of it, ensure docs are updated etc.
+- When you start you'll want to just use official images. Great docs on how to make them work, options, env variables, default ports etc.
+- images aren't necessarily tagged, they're named
+- to download an image: 
+``docker pull <image name>`` => will automatically download the latest one
+``docker pull nginx:1.18.0`` will download that specific version
+- at this link: https://hub.docker.com/_/nginx the "tags" are interchangable, i.e. this would be the same as the above command: ``docker pull nginx:stable``
+- in software, its best to specify the exact option, don't want it to automatically update!
+- dockerhub has lots of open source images created by users like you and I. Very similar to github. If you ever want to use a non-official image, look for number of stars and number of pulls as a popular repository tends to establish trust!
+
+***The image cache**
+- image layers
+- union file system
+- history and inspect commands
+- copy on write
+
+image layers: 
+``docker image ls`` shows the images 
+``docker image history <image name>`` shows the history of the image layers. Every image starts from a blank layer (scratch), every set of changes that happens after that is another layer. 
+=> We don't need to download layers we already have! I.e. If we have a custom image, but they both use the same base ubuntu layer, that layer will be used for both images (saves time and space on the host)
+- Note: the <missing> tag refers to them just being layers inside the image. Theyre not images themselves, so they dont get their own image ID.
+- ``docker image inspect <image name>`` => this gives us all the JSON metadata about the image
+
+**Image tagging and pushing to dockerhub**
+
+- ``docker image tag --help``, images don't technically have a name so we have to refer to them by three pieces of info: <user>/<repo>:<tag> (default tag is latest if not specified)
+if we go ``docker image ls``, we're probably only dealing with official images so we're not going to see the user repository name. Offical repositiroes live at the root namespace, so they dont need an account name infront of the repo name.
+- the tag is not quote a version or a branch, similar to git tags. Its a pointer to a specific image commit
+- You can retag existing docker images: ``docker image tag <imagine youre going to give a new tag to> <the new tag>``
+- i.e. ``docker image tag mongo march4/mongo`` will make a new repo with the same image id as the existing mong
+- to push it: ``docker image push march4/mongo``. it will deny unless you're logged in 
+- to login "docker login": NOTE: Whenever you log on to a computer with your docker info, it will store an authentication key for your profile for that user. If you're using a machine you dont trust, type "docker logout" 
+- now push image again. Go to dockerhub and hit refresh!
+- to add a tag: ``docker image tag march4/mongo march4/mongo:1.4.1``, ``docker image push march4/mongo:1.4.1``
+- to make a private repo, create the repository first in the dockerhub web UI. Then push to it, and it will never be on the internet for others.
+
+***The dockerfile basics***
+A recipe for creating your image!
+
+look in udemy-docker-mastery/dockerfile-sample-1
+
+looks similar to a shell script, but its not!
+
+The "stanza's" (or commands) run top-down, so order is important. 
+
+- FROM stanza => in every docker file, it needs to be there. normally a minimum distribution, like alpine. 
+
+Package managers like apt and yum are one of the reasons to build containers FROM Debian, Ubuntu, Fedora or CentOS
+
+- ENV => for environment variables, a way to set them. Theyre the main way we set keys and values for container building and running containers. Any subsequent lines will be able to use this.
+
+- RUN => essentially its executing shell commands. It uses && to chain commands one after the other. Each stanza is one layer, so this chaining with the && makes sure all these commands are fit into one layer
+
+The next RUN command is linking standard in and standard out logs 
+
+- EXPOSE => by default no ports are opened by a container: it doesn't expose anything from a virtual container unless we list it here
+
+- CMD => required paramater. Final command that will be run every time you launch a new container from the image, or every time you restart a stopped container. 
+
+--- 
+
+***Building Images: Running docker builds***
+
+``docker image build -t customnginx .``
+the -t adds the tag and the . means build this image in this directory. 
+
+If you change a Dockerfile and rebuild, it will use the cached stuff if it hasn't changed. 
+
+Its importortant to keep the stuff at the top that wont change much, and the stuff that might change more at the bottom of the dockerfile to save time!
+
+**Building images: Extending existing images**
+
+(in dockerfile-sample-2)
+
+=> In simple scenarios, the offical images work.
+=> As our projects grow in complexity etc, we'll need to add more config 
+
+``WORKDIR /usr/share/nginx/html`` Changes working directory to root of nginx webhost 
+=> using WORKDIR is preferred to using ``RUN cd /some/path``, but would do the same thing!
+
+=> ``COPY index.html index.html``: This is the stanza you use to copy your source code from your local machine into your container images (in this instance it takes the index.html and puts it in the nginx webhost directory that we WORKDIR'd into above)
+
+=> Note: We're not specifying a CMD in this dockerfile, how to we get away with this? 
+- Theres already a CMD specified in the FROM image. When we use the image, we're inheriting everything from the Dockerfile used to generate the image that we're FROMing
+- Thats how you can chain dockerfiles together!
+
+``docker container run -p 80:80 --rm nginx``
+=> use above to see default nginx server html by visiting "localhost"
+
+now run the dockerfile:
+``docker image build -t nginx-with-html .``
+now if we go into our ``docker image ls`` we can see a new image called "nginx-with-html"
+so we repeat the command but change the image:
+``docker container run -p 80:80 --rm nginx-with-html``
+=> use above to see NEW nginx server html by visiting "localhost" (need to do a hard refresh)
+
+To send this up to our docker repo we'd have to tag it by adding our account to the front i.e: 
+``docker image tag nginx-with-html:latest march4/nginx-with-html:latest``
+``docker image push march4/nginx-with-html``
+
+
+===
+
+Assignment: Build your own image 
+Step 1 - Write Dockerfile:
+````
+FROM node:6.10-alpine
+EXPOSE 80
+RUN apk add --update tini \
+    && mkdir -p /usr/src/app 
+WORKDIR /usr/src/app
+COPY package.json package.json
+RUN npm install \
+    && npm cache clean --force 
+COPY . . 
+CMD /sbin/tini -- node ./bin/www
+````
+
+Step 2 - Build image: 
+``docker image build -t march4/dockerfile-assignment-1 .``
+Confirm image is built ``docker image ls``
+
+Step 3 - Start container: 
+``docker container run -p 80:3000 -rm march4/dockerfile-assignment-1``
