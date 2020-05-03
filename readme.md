@@ -349,9 +349,9 @@ To send this up to our docker repo we'd have to tag it by adding our account to 
 
 Assignment: Build your own image 
 Step 1 - Write Dockerfile:
-````
+````dockerfile
 FROM node:6.10-alpine
-EXPOSE 80
+EXPOSE 3000 # this is the port you want to expose from inside the container (this node app runs on localhost:3000)
 RUN apk add --update tini \
     && mkdir -p /usr/src/app 
 WORKDIR /usr/src/app
@@ -368,3 +368,57 @@ Confirm image is built ``docker image ls``
 
 Step 3 - Start container: 
 ``docker container run -p 80:3000 -rm march4/dockerfile-assignment-1``
+
+Step 4 - Put on dockerhub: 
+``docker image push march4/dockerfile-assignment-1``
+
+***Using Prune to keep your docker system clean***
+
+- ``docker image prune`` to clean up just 'dangling' images
+- ``docker system prune`` will clean up everything
+- most common is ``docker image prune -a`` which removes all images you're not currently using. 
+- ``docker system df`` to see space usage
+
+===
+
+## Section 5: Container Lifetime and Persistent Data - volumes, volumes, volumes
+
+- Defining the problem of persistent data
+- Key concepts with containers: immutable, ephemeral
+- Learning and using Data Volumes
+- Learning and using Bind Mounts
+- Preserve database data while replacing containers for databases
+- mounting code into a container from the host while you're editing it so you can run that code in the host while youre editing it live 
+
+
+**Container lifetime & Persistent data**
+- Containers are usually immutable and ephemeral
+- If we change something, we just redeploy the whole container 
+- This is the ideal scenario, but what bout databases or unique data? Docker gives us features to ensure these 'separation of concerns'
+- This is known as 'persistent data'
+- Two ways: Volumes and Bind Mounts
+- Volumes: make special location outside of container UFS 
+- Bind mounts: Link container path to host path
+
+***Persistent Data: Volumes***
+- Can use ``VOLUME`` command in Dockerfile
+- i.e. take a look at a dockerfile: https://github.com/docker-library/mysql/blob/fef511444a9d2867c9e4e20f5b4062bc071c20a2/8.0/Dockerfile
+On line 77 it says where the volume is stored
+- NOTE: Volumes need manual deletion, you can't clean them up just by deleting a container!
+- Can do ``docker volume ls`` to see a list of volumes
+- ``docker volume inspect <volume id here>`` 
+- issue with ``docker volume ls`` => very hard to know what volume belongs to what. If you have multiple containers and delete them, the volumes will not be deleted. But what containers did the volumes belong to if you want to attach them to a new container?
+- ``docker container run -d --name mysql -e MYSQL_ALLOW_EMPTY_PASSWORD=True -v /var/lib/mysql mysql`` => this is the default path
+- ``docker container run -d --name mysqlVolume -e MYSQL_ALLOW_EMPTY_PASSWORD=True -v mysql-db:/var/lib/mysql mysql`` the ``mysql-db:/var...`` is know as a 'named volume'. If you now do a ``docker volume ls``, you can see it has a volume name instead of a massive random string. 
+- If you now remove the container ``docker container rm -f mysqlVolume``, and ``docker volume ls`` you can see its still there in the volume. Now if you run ``docker container run -d --name mysqlVolume2 -e MYSQL_ALLOW_EMPTY_PASSWORD=True -v mysql-db:/var/lib/mysql mysql``, no new volume will be created! It will instead attach itself to the existing volume with that name. You can use ``docker container inspect mysqlVolume2`` to see this in "Mounts" => note that the source is friendlier too
+- Best to name volumes for the projects so that you know what they're for and that they need to stick around!
+- You can create a volume using the docker ``container run`` command at runtime like we did above, and also in the Dockerfile. But also you can create them using ``docker volume create``, but you would only do this if: You wanted to specify a different driver, or to specify driver options, or put labels on the volume.
+
+***Shell differences for Path Expension***
+how to share files and directories between a host and a Docker container. 
+One of the parts of the command line you'll need to type is the host file path you want to share.
+- For PowerShell use: ${pwd} 
+- For cmd.exe "Command Prompt use: %cd%
+- Linux/macOS bash, sh, zsh, and Windows Docker Toolbox Quickstart Terminal use: $(pwd) 
+
+Note, if you have spaces in your path, you'll usually need to quote the whole path in the docker command.
