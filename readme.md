@@ -387,8 +387,8 @@ Step 4 - Put on dockerhub:
 - Key concepts with containers: immutable, ephemeral
 - Learning and using Data Volumes
 - Learning and using Bind Mounts
-- Preserve database data while replacing containers for databases
-- mounting code into a container from the host while you're editing it so you can run that code in the host while youre editing it live 
+- Preserve database data while replacing containers for databases (VOLUME)
+- mounting code into a container from the host while you're editing it so you can run that code in the host while youre editing it live (BIND MOUNT)
 
 
 **Container lifetime & Persistent data**
@@ -413,6 +413,7 @@ On line 77 it says where the volume is stored
 - If you now remove the container ``docker container rm -f mysqlVolume``, and ``docker volume ls`` you can see its still there in the volume. Now if you run ``docker container run -d --name mysqlVolume2 -e MYSQL_ALLOW_EMPTY_PASSWORD=True -v mysql-db:/var/lib/mysql mysql``, no new volume will be created! It will instead attach itself to the existing volume with that name. You can use ``docker container inspect mysqlVolume2`` to see this in "Mounts" => note that the source is friendlier too
 - Best to name volumes for the projects so that you know what they're for and that they need to stick around!
 - You can create a volume using the docker ``container run`` command at runtime like we did above, and also in the Dockerfile. But also you can create them using ``docker volume create``, but you would only do this if: You wanted to specify a different driver, or to specify driver options, or put labels on the volume.
+- NOTE: Volumes live inside dockers VM (linux)
 
 ***Shell differences for Path Expension***
 how to share files and directories between a host and a Docker container. 
@@ -422,3 +423,31 @@ One of the parts of the command line you'll need to type is the host file path y
 - Linux/macOS bash, sh, zsh, and Windows Docker Toolbox Quickstart Terminal use: $(pwd) 
 
 Note, if you have spaces in your path, you'll usually need to quote the whole path in the docker command.
+
+***Persistent Data: Bind Mounting***
+- A bind mount is a map that maps the host file or directory to a container file or directory
+- Basically just two locations pointing to the same file(s)
+- Wont delete host files when you delete container. If theres a conflict between host file and container file, the host files will win and overwrite any in the container. 
+- Can't use in Dockerfile, must be a container run
+- ... run -v /Users/Mark/stuff:/path/container (mac / linux) or ... run -v //c//Users/Mark/stuff:/path/container (windows)
+- ``docker container run -d --name nginx4 -p 80:80 -v $(pwd):/usr/share/nginx/html nginx`` => for the $(pwd) command to work, you need to be in the right file, aka the directory you want to copy accross. i.e. udemy-docker-mastery/dockerfile-sample-2. If you then add a file to this directory, and get into the BASH of the container you just made (ie.) ``docker container exec -it nginx4 bash`` and cd into usr/share/nginx/html and give it an ls -a, you can see your updates on your local reflect whats in the container!
+
+---
+
+Assignment:
+- Create a postgres container with named volume "psql-data" using version 9.6.1 (old)
+- use dockerhub to learn volume path and versions needed to run it 
+- check logs, stop container (when startup logs finished)
+- create new postgres container with same named volume using 9.6.2
+- check logs to validate (should be less since its not making the named volume)
+
+Creating first container:
+``docker container run -d --name postgres1 -e POSTGRES_PASSWORD=password -v psql-data:/var/lib/postgresql/data postgres:9.6.1``
+Check logs:
+``docker container logs postgres1``
+Stop container: 
+``docker container stop postgres1``
+Start 2nd container: 
+``docker container run -d --name postgres2 -e POSTGRES_PASSWORD=password -v psql-data:/var/lib/postgresql/data postgres:9.6.2``
+Check logs: 
+``docker container logs postgres2``
