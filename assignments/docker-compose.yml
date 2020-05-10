@@ -1,0 +1,17 @@
+version: '3'
+
+services:
+  mrdrupal:
+    image: drupal:8.7.13
+    ports: 
+      - 8080:80
+    volumes:
+      - /var/www/html/modules
+      - /var/www/html/profiles
+      - /var/www/html/themes
+  mrpostgres:
+    image: postgres:10.12
+    environment:
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: drupal
+      POSTGRES_USER: user

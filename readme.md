@@ -451,3 +451,135 @@ Start 2nd container:
 ``docker container run -d --name postgres2 -e POSTGRES_PASSWORD=password -v psql-data:/var/lib/postgresql/data postgres:9.6.2``
 Check logs: 
 ``docker container logs postgres2``
+
+---
+
+Assignment 2: Bind Mounts
+- use a jekkyl 'static site generator' to start a local web server
+- changing code on the host and watching it be reflected in the container (i.e. html etc)
+- source code in course repo under bindmount-sample-1 (edit these on host)
+- container detects changes and updates web server
+- start container with: 
+``docker run -p 80:4000 -v $(pwd):/site bretfisher/jekyll-serve`` (or 81:4000 if 80 is taken)
+- change file in _posts directory, see the changes in the browser!s
+
+===
+
+postgres now needs a password passed in like so: (env variable) POSTGRES_PASSWORD=mypasswd
+
+=== 
+
+## Section 6: Making it easier with docker Compose: the multi-container tool
+
+Files used in docker-compose will be on the same docker network!
+
+**docker-compose**
+- Why? configure relationships between containers
+- Why: Save our docker container run settings in easy to read file
+- Why: create a one-liner developer environment startups
+Comprised of 2 seperate but related things
+1. YAML-formatted file that describes our solution options for:
+  - containers
+  - networks
+  - volumes
+2. A CLI tool docker-compose used for local dev/test automation with those YAML files
+
+**docker-compose.yml**
+- compose YAML format has its own versions, recommend at least 2. Need to specify it or it defaults to 1! (you will lose features)
+- YAML file can be used with docker-compose command for local docker automaion or..
+- With docker directly in production with Swam (as of v.1.13)
+- ``docker-compose --help``
+
+heirachical: 
+in YAML things need to be formatted a certain way, usually minimum 2 spaces etc.
+"services" (which usually means each container)
+- everything in docker run command goes in services basically - the first one under "services" is the container name!
+- this docker-compose.yaml file basically is a shell script for running docker stuff
+"volumes" (OPTIONAL)
+- same as "docker volume create" or "docker network create" (OPTIONAL)
+
+===
+
+**Trying out basic compose commands w/ docker-compose cli**
+- comes bundled with docker for windows/mac
+- not a production-grade tool, ideal for local development and test
+- two most common commands are:
+  - ``docker compose up`` (setup volumes/networks and start all containers)
+  - ``docker compose down`` (stop all containers and remove cont/vol/net)
+- if all your projects had a Dockerfile and docker-compose.yml then the "new developer onboarding" would be:
+    - ``git clone github.com/some/software``
+    - ``docker compose up``
+
+try out compose-assignment-2: 
+cd into it and run ``docker-compose up``
+control+c to stop server
+to run it in the background: ``docker-compuse up -d``
+
+a lot of the commands you're used to in docker are also in docker-compose.
+docker-compose is just talking to docker cli in the background!
+
+=== 
+
+Assignment: Writing a compose file 
+- build a basic compose file for drupal content management system website. 
+- lookup docker hub for drupal and postgres images
+- use ports to expose drupal on 8080
+- use version 2 
+- 2 services: one for drupal, one for postgres
+- set POSTGRES_PASSWORD for postgres
+- wlak through drupal setup via browser
+- tip: drupal assumes DB is localhost, but its service name 
+- extra credit: use volumes to store drupal inique data
+https://hub.docker.com/_/drupal
+
+(saved in assigments/docker-compose.yml)
+
+===
+
+Using Compose to build (Adding image building to compose files)
+- Compose can also build your custom images
+- will look in the cache to build them, or will build with docker-compose up if it does't find it 
+- will need to rebuild with "docker-compose build" if it doesn't find it!
+- great for complex builds that have lots of vars or build args
+
+i.e. instead of this: 
+````yml
+services:
+  proxy:
+    image: nginx:1.13 # this will use the latest version of 1.13.x
+    ports:
+      - '80:80' # expose 80 on host and sent to 80 in container
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+````
+
+it looks like this:
+````yml
+services:
+  proxy:
+    build:
+      context: .
+      dockerfile: nginx.Dockerfile
+    ports:
+      - '80:80'
+````
+
+instead of being given an image, its being given a build with a path (context) and a dockerfile!
+
+=> go into compose-sample-3 and run "docker-compose up", can now edit the html file and refresh to changes (its bind mounted)
+=> to stop this its not just ``docker-compose down`` (that will work but wont remove the image). To remove the image also you need to type ``docker-compose down --rmi local``
+
+===
+
+Assignment: Build and run compose
+- "Building custom drupal image for local testing"
+- start with docker-compose from last assignment
+- 
+
+Dockerfile:
+the "\" in a dockerfile means include the next line in this command.
+the "&&" means, if the first command succeeds, then run this one
+
+docker-compose:
+if at any point there is an image key and a build key, it changes the purpose of the image key. with a build, the image key is now saying its name
+
