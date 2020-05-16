@@ -649,5 +649,32 @@ to scale up service: ``docker service update <name or id> --replicas 3``
 if you try to remove a container (i.e. one of the replicas), with something like ``docker container rm -f <name>``,then you check ``docker service ls`` you'll now have 2/3. if you check ``docker service ls`` again after a few seconds, you'll see its back to 3/3. The goal of an orchastration system like swarm is to keep up the servers and replace them if they go down (much unline a standard docker container run command).
 If you want to take these containers down, you need to take the orchastation service down: ``docker service rm <id or name of service>``
 
+===
 
+Creatign a 3-node swarm cluster:
+play-with-docker.com (because we need 3 OS's)
 
+``docker swarm init`` doesnt worm (common on cloud servers) => it wants us to specify an ip address to advertise the swarm ip on. You need one accessible from other servers:
+``docker swarm init --advertise-addr <ip address>``
+
+now need to copy the command it spits out: 
+``docker swarm join --token SWMTKN-1-16bzmi3st89fuem4r6384jmwr73kbx5tadiz3gqdqb1tb0v3cx-5iasq3zkjxfatg0ner5f2e613 192.168.0.18:2377``
+paste this into node2
+
+now go back to node1, ``docker node ls`` and you can see node2 has joined. note 2nd node is only a worker. 
+on node2 you can't use "docker node ls", because its only a worker. If you want to update node2 to be a manager, you need to use node1 ``docker node update --role manager node2``. Now in ``docker node ls`` its manager status is "reachable".
+
+now to add node3, type ``docker swarm join-token <manager or worker>``
+
+now in node 1: ``docker service create --replicas 3 alpine ping 8.8.8.8``
+now can use ``docker service ls`` => 3 or 3
+ ``docker node ps`` => see local node running the container
+ , ``docker service ps <name or id>``
+
+If setup like this, you can really operate the whole thing from node1
+
+===
+
+Section 8: Swarm Basic Features and how to use them in your workflow 
+
+Gonna park this here. Haven't had to do swarm / k8s stuff yet... no use case
