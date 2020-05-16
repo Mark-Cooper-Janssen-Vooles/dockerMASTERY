@@ -581,5 +581,73 @@ the "\" in a dockerfile means include the next line in this command.
 the "&&" means, if the first command succeeds, then run this one
 
 docker-compose:
-if at any point there is an image key and a build key, it changes the purpose of the image key. with a build, the image key is now saying its name
+if at any point there is an image key and a build key, it changes the purpose of the image key. with a build, the image key is now saying its name. You can leave it out if you use just "build"!
+
+===
+
+## Section 7: Swam intro and creating a 3-Node Swarm Cluster
+
+Containers everywhere = new problems
+How do we deploy / maintain all these containers?
+- How do we automate container lifecycle?
+- How can we easily scale out/in/up/down?
+- How can we ensure containers are re-created if they fail?
+- How can we replace containers without downtime (i.e. if theres an update) => blue/green deploy?
+- How can we control/track where containers get started?
+- How can we create cross-node virtual networks?
+- How can we ensure only trusted servers run our containers?
+- How can we store secrets, keys, passwords, and get them to the right container (and ony that container?)
+
+Swarm Mode: Built-in Orchestration
+- A server clustering solution built inside docker
+- Added in summer 2016, enhanced in 2017
+- Not enabled by default, new commands once enabled 
+  - ``docker swarm``
+  - ``docker node``
+  - ``docker service``
+  - ``docker stack``
+  - ``docker secret``
+- split between "worker" and "managers". A manager is like a worker with permissions to control the swarm
+- docker run just deploys one container
+- a swarm manager might have 3 nginx replicas, and three workers (each one is a nginx container)
+- managers issue orders down to the workers. managers themselves can also be workers
+
+- a manager is a worker with permissions to control the swarm
+- you can promote and demote managers to workers and workers to managers
+
+- ``docker service`` command replaces ``docker run`` command (for a swarm). allows us to add extra features to a container when we run it - i.e. replicas are known as tasks 
+
+===
+
+**Create your first service and scale it locally**
+
+- you can create a single node swarm
+- to know if swarm is on or not, ``docker info``, it will say "swarm inactive" if not on (its off by default!)
+- ``docker swarm init`` will give a single node swarm - swarm is now active
+- docker swarm init out of the box =>
+  - lots of PKI and security automation
+    - root signing certificate create for our swarm
+    - certificate issued for first manager node
+    - join tokens are create
+  - raft database created to store root CA, configs and secrets
+    - encrypted by default on disk (1.13+)
+    - no need for another key/value system to hold orchestration/secrets
+    - replicates logs amongst managers via mutual TLS in "control plane"
+
+too add a worker to the swarm: 
+``docker node ls`` => see the nodes you've created
+``docker node --help``
+``docker swarm COMMAND`` 
+
+``docker service --help`` => replaces docker run
+``docker service create alpine ping 8.8.8.8`` => spits back a random id (the service id)
+``docker service ls`` to see it. this doesn't show us the actual container, just a list of the services. 
+to see actual container: ``docker service ps <name or id>``. it now has a node component
+``docker container ls`` still works, but docker is adding some info to the name etc
+to scale up service: ``docker service update <name or id> --replicas 3``
+
+if you try to remove a container (i.e. one of the replicas), with something like ``docker container rm -f <name>``,then you check ``docker service ls`` you'll now have 2/3. if you check ``docker service ls`` again after a few seconds, you'll see its back to 3/3. The goal of an orchastration system like swarm is to keep up the servers and replace them if they go down (much unline a standard docker container run command).
+If you want to take these containers down, you need to take the orchastation service down: ``docker service rm <id or name of service>``
+
+
 
